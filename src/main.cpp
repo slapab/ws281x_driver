@@ -12,8 +12,13 @@
 #include "Timer.h"
 #include "BlinkLed.h"
 #include "WS2813Leds.h"
+#include "RingBuffer.hpp"
 
-extern WS2813Leds<155> ledStrip1;
+#include "AnimationContext.h"
+#include "PseudoRandomDotsAnimation.hpp"
+
+
+extern WS2813Leds<LEDS_COUNT> ledStrip1;
 extern LedsTransmission ws2813TransLayer;
 
 // ----------------------------------------------------------------------------
@@ -85,6 +90,14 @@ static uint32_t* pSpiB2 = BITBAND_SRAM(&spiLedBuff[10], 2);
 static uint32_t* pSpiB1 = BITBAND_SRAM(&spiLedBuff[11], 6);
 static uint32_t* pSpiB0 = BITBAND_SRAM(&spiLedBuff[11], 2);
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+    void ADC1_2_IRQHandler();
+    void USART1_IRQHandler();
+#ifdef __cplusplus
+}
+#endif
 
 
 // initializes buffer with frame
@@ -184,19 +197,24 @@ void initGPIOS() {
                     | GPIO_CRL_MODE6 | GPIO_CRL_CNF6
                     | GPIO_CRL_MODE7 | GPIO_CRL_CNF7
                     | GPIO_CRL_MODE0 | GPIO_CRL_CNF0
-                    | GPIO_CRL_MODE1 | GPIO_CRL_CNF1
+                    | GPIO_CRL_MODE1 | GPIO_CRL_CNF1 // PA1 analog
                     | GPIO_CRL_MODE2 | GPIO_CRL_CNF2
                     | GPIO_CRL_MODE3 | GPIO_CRL_CNF3
-                );
+                    );
+    GPIOA->CRH &= ~( GPIO_CRH_MODE9 | GPIO_CRH_CNF9 /* P9 -> usart1 tx */
+                    );
+
     GPIOA->CRL |= GPIO_CRL_MODE5 | GPIO_CRL_CNF5_1 /* PA5 AF, 50 MHz, push-pull */
                | GPIO_CRL_MODE7 | GPIO_CRL_CNF7_1 // PA7 - MOSI
                | GPIO_CRL_CNF6_0 // MISO should be as input, so zero value are ok, but set input type as floating
                // Not sure that this will work if I make connection bridge connection (use reistors for safety)
                | GPIO_CRL_CNF0_0 // PA0 - floating input
-               | GPIO_CRL_CNF1_0 // PA1 - floating input
+               //| GPIO_CRL_CNF1_0 // PA1 - analog
                | GPIO_CRL_CNF2_0 // PA2 - floating input
                | GPIO_CRL_MODE3 //| GPIO_CRL_CNF3_1 // PA3 - output drive the LEDS
                ;
+
+    GPIOA->CRH |= GPIO_CRH_MODE9 | GPIO_CRH_CNF9_1; /* PA9 -> usart1 tx AF, 50 MHz, push-pull */
 
 //    GPIOA->CRL |= GPIO_CRL_MODE5 | GPIO_CRL_CNF5_1 /* PA5 AF, 50 MHz, push-pull */
 //               | GPIO_CRL_MODE7 | GPIO_CRL_CNF7_1 // PA7 - MOSI
@@ -234,6 +252,92 @@ void initGPIOS() {
 //    GPIOF->MODER = 0x00000004;
 }
 
+void initUSART1() {
+    __enable_irq();
+    NVIC_SetPriority(USART1_IRQn, 7);
+    NVIC_ClearPendingIRQ(USART1_IRQn);
+    NVIC_EnableIRQ(USART1_IRQn);
+
+    RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
+
+    // baudrate 19200, apb2 clk = 48MHz
+    USART1->BRR = 0;
+    USART1->BRR |= (USART_BRR_DIV_Mantissa & ((uint16_t)156 << 4)) |
+                    (USART_BRR_DIV_Fraction & ((uint16_t)4));
+
+    USART1->CR2 = 0;
+
+    USART1->CR3 = 0;
+
+    USART1->CR1 = 0;
+    USART1->CR1 |= USART_CR1_TE | USART_CR1_UE | USART_CR1_TXEIE;
+}
+
+void initADC() {
+    RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
+    asm("nop");
+    // set adcpre to 6 (48MHz/6 = 8MHz)
+    RCC->CFGR |= RCC_CFGR_ADCPRE_1;
+    RCC->CFGR &= ~(RCC_CFGR_ADCPRE_0);
+
+    ADC1->CR1 = 0;
+    ADC1->CR1 |= ADC_CR1_SCAN | ADC_CR1_EOCIE;
+
+    ADC1->CR2 = 0;
+    ADC1->CR2 |= ADC_CR2_CAL;
+
+    asm("nop");
+    asm("nop");
+    asm("nop");
+//    ADC1->CR2 |= ADC_CR2_ADON;
+
+    ADC1->SMPR2 |= ADC_SMPR2_SMP1_2 | ADC_SMPR2_SMP1_0;
+
+    ADC1->SQR3 |= ADC_SQR3_SQ1_0; // channel 1
+
+    __enable_irq();
+    NVIC_SetPriority(ADC1_2_IRQn, 7);
+    NVIC_ClearPendingIRQ(ADC1_2_IRQn);
+    NVIC_EnableIRQ(ADC1_2_IRQn);
+
+}
+
+RingBuffer<uint8_t, 32> uartRingBuffer;
+volatile uint8_t adc_bit = 0;
+volatile uint8_t rnddata = 0;
+
+void ADC1_2_IRQHandler() {
+    volatile uint16_t data = ADC1->DR;
+    if (adc_bit > 6) {
+        uartRingBuffer.append(rnddata);
+        // enable TX
+        USART1->CR1 |= USART_CR1_TXEIE;
+
+        rnddata = 0 ;
+        adc_bit = 0;
+    }
+
+    rnddata |= static_cast<uint8_t>((data >> 7) & 0x03) << adc_bit;
+//    rnddata |= static_cast<uint8_t>((data >> 7) & 0x01) << (adc_bit+1);
+    adc_bit += 2;
+
+
+    NVIC_ClearPendingIRQ(ADC1_2_IRQn);
+}
+
+
+void USART1_IRQHandler() {
+
+    uint8_t data;
+    if (true == uartRingBuffer.get(data)) {
+        USART1->DR = data;
+    } else {
+        // disable TX
+        USART1->CR1 &= ~USART_CR1_TXEIE;
+    }
+
+    NVIC_ClearPendingIRQ(USART1_IRQn);
+}
 
 void spiTx(uint8_t data) {
 //    if ((SPI1->SR & SPI_SR_RXNE) == true)
@@ -249,40 +353,45 @@ void spiTx(uint8_t data) {
 }
 
 
-void efekt1(void){
-//    uint16_t i, j=0, color;
 
-//    while(1) {
-//        color = j;
-        spiTx(0xAA);
 
-//        for(i=0; i<300; i++){
-//            if(color<256){
-//                spiTx((color&255));
-//                spiTx(255-(color&255));
-//                spiTx(0);
-//            }
-//            else if(color<512){
-//                spiTx(255-(color&255));
-//                spiTx(0);
-//                spiTx((color&255));
-//            }
-//            else if(color<768){
-//                spiTx(0);
-//                spiTx((color&255));
-//                spiTx(255-(color&255));
-//            }
-//
-//            color = (color+32)%768;
-//        }
-//
-//        j = (j+16)%768;
-//
-//        waitms(20);
-//    }
+void movingLed() {
+    Timer timer;
+    const RGBColor movingColor{60, 0, 200};
+    const RGBColor backgroundColor{0,0,0};
+
+    constexpr const auto delay = 10; // ms
+    //move forward
+    for (std::size_t i = 0; i < LEDS_COUNT; ++i) {
+
+        // clear turned on LED before
+        if (i > 0) {
+            ledStrip1.fill(i-1, i, backgroundColor);
+        }
+        // set next led
+        ledStrip1.fill(i, i+1, movingColor);
+
+        while(false == ledStrip1.send()) {;}
+        timer.sleep(delay);
+    }
+
+    timer.sleep(500);
+    // moving back
+    for (int32_t i = LEDS_COUNT-2; i >= 1; --i ) {
+        // clear turned on LED before
+
+        // set next led
+        ledStrip1.fill(i, i+1, movingColor);
+
+        ledStrip1.fill(i+1, i+2, backgroundColor);
+
+
+        while(false == ledStrip1.send()) {;}
+        timer.sleep(delay);
+    }
+
+    // moving back
 }
-
-
 
 
 // ----- main() ---------------------------------------------------------------
@@ -329,58 +438,64 @@ int main(int argc, char* argv[])
   uint32_t seconds = 0;
 
   initGPIOS();
+  initADC();
+  initUSART1();
 //  initDMA();
 //  initTIM();
 //  initSPI();
 
-//  GPIOA->CRL |= GPIO_CRL_MODE5;
-//  GPIOA->CRL &= ~(GPIO_CRL_CNF5);
 
   initSpiLedBuff();
   convertRGB(0x01, 0x02, 0x04);
   // Infinite loop
 
   ledStrip1.registerTransmissionLayer(&ws2813TransLayer);
+
+  animations::AnimationContext animationContext;
+  animations::PseudoRandomDotsAnimation dotsAnim(timer, ledStrip1);
+  int descr1 = animationContext.registerAnimation(&dotsAnim);
+
   while (1)
     {
+      animationContext.runNext();
+      timer.sleep(1000);
+
+//      ADC1->CR2 |= ADC_CR2_SWSTART;
+      // Start ADC conversion on PA1
+      ADC1->CR2 |= ADC_CR2_ADON;
+
       blinkLed.turnOn();
-      timer.sleep(100);//seconds== 0 ? Timer::FREQUENCY_HZ : BLINK_ON_TICKS);
+      timer.sleep(50);//seconds== 0 ? Timer::FREQUENCY_HZ : BLINK_ON_TICKS);
 //      GPIOA->BSRR |= GPIO_BSRR_BR5;
 
       blinkLed.turnOff();
-      timer.sleep(200); //BLINK_OFF_TICKS);
+      timer.sleep(100); //BLINK_OFF_TICKS);
 
       ++seconds;
 
 //      sendSpiBuffer();
 
+      movingLed();
 
-      ledStrip1.fill(0, 51, {0x05,0xA0,1});
-      ledStrip1.fill(100, 149, {5, 5, 5});
-//      ledStrip1.fill(1, 2, {4,5,6});
-//      ledStrip1.fill(3, 5, {0, 255, 0});
-//      ledStrip1.fill(5, 10, {0,0,255});
+      timer.sleep(500);
 
-      // just imitate that first transfer just ended
-//      ledStrip1.imitateSentData();
-
+      ledStrip1.fill(0, 3, {128,0,0});
+      ledStrip1.fill(3, 6, {0,128,0});
+      ledStrip1.fill(6, 9, {0,0,128});
       while (false == ledStrip1.send());
 
+      timer.sleep(500);
 //      timer.sleep(10);
 
-      ledStrip1.setMarkerColor(RGBColor {3,3,3});
-      ledStrip1.fill(0,2);
-      ledStrip1.fill(3,5);
-
-//      ledStrip1.fill(3,10);
-
-      // just imitate that first transfer just ended
-//      ledStrip1.imitateSentData();
+//      ledStrip1.setMarkerColor(RGBColor {128,0,0});
+//      ledStrip1.fill(0,2);
+//      ledStrip1.fill(3,5);
+      ledStrip1.fill(0,3, {0,0,0});
 
       while (false == ledStrip1.send()) {;}
 
 
-
+      timer.sleep(2000);
       asm("nop");
       asm("nop");
       asm("nop");
