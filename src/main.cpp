@@ -16,10 +16,14 @@
 
 #include "AnimationContext.h"
 #include "PseudoRandomDotsAnimation.hpp"
+#include "PseudoRandomNumberGenerator.h"
+#include "FallingLightAnimation.hpp"
 
 
 extern WS2813Leds<LEDS_COUNT> ledStrip1;
 extern LedsTransmission ws2813TransLayer;
+// todo fix uint16_t
+extern pseudo_rng::PseudoRandomNumberGenerator<uint16_t> RndGen;
 
 // ----------------------------------------------------------------------------
 //
@@ -93,7 +97,7 @@ static uint32_t* pSpiB0 = BITBAND_SRAM(&spiLedBuff[11], 2);
 #ifdef __cplusplus
 extern "C" {
 #endif
-    void ADC1_2_IRQHandler();
+//    void ADC1_2_IRQHandler();
     void USART1_IRQHandler();
 #ifdef __cplusplus
 }
@@ -273,57 +277,38 @@ void initUSART1() {
     USART1->CR1 |= USART_CR1_TE | USART_CR1_UE | USART_CR1_TXEIE;
 }
 
-void initADC() {
-    RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
-    asm("nop");
-    // set adcpre to 6 (48MHz/6 = 8MHz)
-    RCC->CFGR |= RCC_CFGR_ADCPRE_1;
-    RCC->CFGR &= ~(RCC_CFGR_ADCPRE_0);
-
-    ADC1->CR1 = 0;
-    ADC1->CR1 |= ADC_CR1_SCAN | ADC_CR1_EOCIE;
-
-    ADC1->CR2 = 0;
-    ADC1->CR2 |= ADC_CR2_CAL;
-
-    asm("nop");
-    asm("nop");
-    asm("nop");
-//    ADC1->CR2 |= ADC_CR2_ADON;
-
-    ADC1->SMPR2 |= ADC_SMPR2_SMP1_2 | ADC_SMPR2_SMP1_0;
-
-    ADC1->SQR3 |= ADC_SQR3_SQ1_0; // channel 1
-
-    __enable_irq();
-    NVIC_SetPriority(ADC1_2_IRQn, 7);
-    NVIC_ClearPendingIRQ(ADC1_2_IRQn);
-    NVIC_EnableIRQ(ADC1_2_IRQn);
-
-}
+//void initADC() {
+//    RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
+//    asm("nop");
+//    // set adcpre to 6 (48MHz/6 = 8MHz)
+//    RCC->CFGR |= RCC_CFGR_ADCPRE_1;
+//    RCC->CFGR &= ~(RCC_CFGR_ADCPRE_0);
+//
+//    ADC1->CR1 = 0;
+//    ADC1->CR1 |= ADC_CR1_SCAN | ADC_CR1_EOCIE;
+//
+//    ADC1->CR2 = 0;
+//    ADC1->CR2 |= ADC_CR2_CAL;
+//
+//    asm("nop");
+//    asm("nop");
+//    asm("nop");
+////    ADC1->CR2 |= ADC_CR2_ADON;
+//
+//    ADC1->SMPR2 |= ADC_SMPR2_SMP1_2 | ADC_SMPR2_SMP1_0;
+//
+//    ADC1->SQR3 |= ADC_SQR3_SQ1_0; // channel 1
+//
+//    __enable_irq();
+//    NVIC_SetPriority(ADC1_2_IRQn, 7);
+//    NVIC_ClearPendingIRQ(ADC1_2_IRQn);
+//    NVIC_EnableIRQ(ADC1_2_IRQn);
+//
+//}
 
 RingBuffer<uint8_t, 32> uartRingBuffer;
 volatile uint8_t adc_bit = 0;
 volatile uint8_t rnddata = 0;
-
-void ADC1_2_IRQHandler() {
-    volatile uint16_t data = ADC1->DR;
-    if (adc_bit > 6) {
-        uartRingBuffer.append(rnddata);
-        // enable TX
-        USART1->CR1 |= USART_CR1_TXEIE;
-
-        rnddata = 0 ;
-        adc_bit = 0;
-    }
-
-    rnddata |= static_cast<uint8_t>((data >> 7) & 0x03) << adc_bit;
-//    rnddata |= static_cast<uint8_t>((data >> 7) & 0x01) << (adc_bit+1);
-    adc_bit += 2;
-
-
-    NVIC_ClearPendingIRQ(ADC1_2_IRQn);
-}
 
 
 void USART1_IRQHandler() {
@@ -357,37 +342,45 @@ void spiTx(uint8_t data) {
 
 void movingLed() {
     Timer timer;
-    const RGBColor movingColor{60, 0, 200};
+    RGBColor movingColor{60, 0, 200};
     const RGBColor backgroundColor{0,0,0};
 
-    constexpr const auto delay = 10; // ms
-    //move forward
-    for (std::size_t i = 0; i < LEDS_COUNT; ++i) {
+    constexpr const auto delay = 6; // ms
 
-        // clear turned on LED before
-        if (i > 0) {
-            ledStrip1.fill(i-1, i, backgroundColor);
+    for (int jj = 0; jj < 5; ++jj) {
+        if (jj > 0) {
+            movingColor.r = RndGen.randomize() % 240;
+            movingColor.g = RndGen.randomize() % 180;
+            movingColor.b = RndGen.randomize() % 80;
         }
-        // set next led
-        ledStrip1.fill(i, i+1, movingColor);
+        //move forward
+        for (std::size_t i = 0; i < LEDS_COUNT; ++i) {
 
-        while(false == ledStrip1.send()) {;}
-        timer.sleep(delay);
-    }
+            // clear turned on LED before
+            if (i > 0) {
+                ledStrip1.fill(i-1, i, backgroundColor);
+            }
+            // set next led
+            ledStrip1.fill(i, i+1, movingColor);
 
-    timer.sleep(500);
-    // moving back
-    for (int32_t i = LEDS_COUNT-2; i >= 1; --i ) {
-        // clear turned on LED before
+            while(false == ledStrip1.send()) {;}
+            timer.sleep(delay);
+        }
 
-        // set next led
-        ledStrip1.fill(i, i+1, movingColor);
+        timer.sleep(500);
+        // moving back
+        for (int32_t i = LEDS_COUNT-2; i >= 1; --i ) {
+            // clear turned on LED before
 
-        ledStrip1.fill(i+1, i+2, backgroundColor);
+            // set next led
+            ledStrip1.fill(i, i+1, movingColor);
+
+            ledStrip1.fill(i+1, i+2, backgroundColor);
 
 
-        while(false == ledStrip1.send()) {;}
-        timer.sleep(delay);
+            while(false == ledStrip1.send()) {;}
+            timer.sleep(delay);
+        }
     }
 
     // moving back
@@ -438,7 +431,6 @@ int main(int argc, char* argv[])
   uint32_t seconds = 0;
 
   initGPIOS();
-  initADC();
   initUSART1();
 //  initDMA();
 //  initTIM();
@@ -451,18 +443,28 @@ int main(int argc, char* argv[])
 
   ledStrip1.registerTransmissionLayer(&ws2813TransLayer);
 
-  animations::AnimationContext animationContext;
+  animations::AnimationContext animationContext(RndGen);
   animations::PseudoRandomDotsAnimation dotsAnim(timer, ledStrip1);
+  animations::FallingLightAnimation fallingLight(timer, ledStrip1);
   int descr1 = animationContext.registerAnimation(&dotsAnim);
+  animationContext.registerAnimation(&fallingLight);
+
+
+  volatile uint16_t t = 0;
+  RndGen.initADC();
+  for (volatile int i = 0; i < 2; ++i) {
+      t = RndGen.randomize();
+//      RndGen.fireADC();
+//      RndGen.seedWithADCSamples();
+  }
+  t += 3;
+
 
   while (1)
     {
       animationContext.runNext();
       timer.sleep(1000);
 
-//      ADC1->CR2 |= ADC_CR2_SWSTART;
-      // Start ADC conversion on PA1
-      ADC1->CR2 |= ADC_CR2_ADON;
 
       blinkLed.turnOn();
       timer.sleep(50);//seconds== 0 ? Timer::FREQUENCY_HZ : BLINK_ON_TICKS);
@@ -479,10 +481,10 @@ int main(int argc, char* argv[])
 
       timer.sleep(500);
 
-      ledStrip1.fill(0, 3, {128,0,0});
-      ledStrip1.fill(3, 6, {0,128,0});
-      ledStrip1.fill(6, 9, {0,0,128});
-      while (false == ledStrip1.send());
+//      ledStrip1.fill(0, 3, {128,0,0});
+//      ledStrip1.fill(3, 6, {0,128,0});
+//      ledStrip1.fill(6, 9, {0,0,128});
+//      while (false == ledStrip1.send());
 
       timer.sleep(500);
 //      timer.sleep(10);
@@ -490,12 +492,12 @@ int main(int argc, char* argv[])
 //      ledStrip1.setMarkerColor(RGBColor {128,0,0});
 //      ledStrip1.fill(0,2);
 //      ledStrip1.fill(3,5);
-      ledStrip1.fill(0,3, {0,0,0});
+//      ledStrip1.fill(0,3, {0,0,0});
+//
+//      while (false == ledStrip1.send()) {;}
 
-      while (false == ledStrip1.send()) {;}
 
-
-      timer.sleep(2000);
+      timer.sleep(1000);
       asm("nop");
       asm("nop");
       asm("nop");

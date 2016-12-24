@@ -4,8 +4,9 @@
 
 namespace animations {
 
-AnimationContext::AnimationContext()
-    : m_CurrentAnimation(-1) {
+AnimationContext::AnimationContext(pseudo_rng::PseudoRandomNumberGenerator<uint16_t>& rnd)
+    : m_CurrentAnimation(-1)
+    , m_RndGen(rnd) {
     std::fill_n(m_Animations, ANIMATIONS_NO, nullptr);
 }
 
@@ -66,6 +67,7 @@ bool AnimationContext::runSpecific(const int descr) {
 
     return retval;
 }
+
 
 
 } // namespace
