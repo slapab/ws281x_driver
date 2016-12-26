@@ -265,7 +265,7 @@ inline void WS2813Leds<LEDS_CNT>::fill(uint16_t start, uint16_t end, const RGBCo
         return;
     }
 
-    if (end >= LEDS_COUNT*3)
+    if (end > LEDS_COUNT*3)
     {
         return;
     }
