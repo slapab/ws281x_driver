@@ -284,8 +284,6 @@ inline void WS2813Leds<LEDS_CNT>::fill(uint16_t start, uint16_t end, const RGBCo
     ptrDist = m_pModifiedEnd - m_pFillingBuff;
     if (end > ptrDist && ptrDist >= 0) {
         m_pModifiedEnd = m_pFillingBuff + end;
-    } else {
-        m_pModifiedEnd = m_pModifiedStart + placeDistance;
     }
 
     for (uint16_t i = start; i < end; i += 3) {
