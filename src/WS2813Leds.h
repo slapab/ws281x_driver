@@ -41,6 +41,7 @@ class RGBColor : public LEDColor {
 public:
     RGBColor();
     RGBColor(uint8_t r, uint8_t g, uint8_t b);
+    RGBColor& inc(const uint8_t v, const RGBColor& max);
     RGBColor& operator+=(const uint8_t d);
     RGBColor& operator-=(const uint8_t d);
     RGBColor& operator++();
@@ -159,6 +160,17 @@ inline RGBColor& RGBColor::operator--() {
     if (r > 0) --r;
     if (g > 0) --g;
     if (b > 0) --b;
+    return *this;
+}
+
+inline  RGBColor& RGBColor::inc(const uint8_t v, const RGBColor& max) {
+    uint8_t diff = max.r - r;
+    if (diff >= v) {r += v;} else {r += diff;}
+    diff = max.g - g;
+    if (diff >= v) {g += v;} else {g += diff;}
+    diff = max.b - b;
+    if (diff >= v) {b += v;} else {b += diff;}
+
     return *this;
 }
 
