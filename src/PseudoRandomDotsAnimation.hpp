@@ -55,18 +55,18 @@ inline void PseudoRandomDotsAnimation::run(AnimationContext* context) {
     }
         //-----------------------------------------------
         // just turn off most leds
-//        fg = {0,0,0};
-//        for (std::size_t i = 0; i < 400; ++i) {
-//            uint16_t idx ;//= rndGen.randomize();
+        fg = {0,0,0};
+        for (std::size_t i = 0; i < 400; ++i) {
+            uint16_t idx ;//= rndGen.randomize();
 
-//            do {
-//                idx = rndGen.randomize() & 0x01FF;
-//            } while(idx >= LEDS_COUNT-1);
+            do {
+                idx = rndGen.randomize() & 0x01FF;
+            } while(idx >= LEDS_COUNT-1);
 
-//            m_LedStrip.fill(idx, idx+1, fg);
-//            while (false == m_LedStrip.send());
-//            m_Timer.sleep(15);
-//        }
+            m_LedStrip.fill(idx, idx+1, fg);
+            while (false == m_LedStrip.send());
+            m_Timer.sleep(15);
+        }
         //-----------------------------------------------
 
         //-----------------------------------------------

@@ -41,6 +41,11 @@ class RGBColor : public LEDColor {
 public:
     RGBColor();
     RGBColor(uint8_t r, uint8_t g, uint8_t b);
+    RGBColor& operator+=(const uint8_t d);
+    RGBColor& operator-=(const uint8_t d);
+    RGBColor& operator++();
+    RGBColor& operator--();
+
     virtual ~RGBColor() {}
 };
 
@@ -123,6 +128,37 @@ inline RGBColor::RGBColor()
 inline RGBColor::RGBColor(uint8_t r, uint8_t g, uint8_t b)
     : LEDColor(r,g,b) { ; }
 
+
+inline RGBColor& RGBColor::operator+=(const uint8_t d) {
+    uint8_t diff = 255 - r;
+    if (diff >= d) {r += d;} else {r += diff;}
+    diff = 255 - g;
+    if (diff >= d) {g += d;} else {g += diff;}
+    diff = 255 - b;
+    if (diff >= d) {b += d;} else {b += diff;}
+    return *this;
+}
+
+inline RGBColor& RGBColor::operator-=(const uint8_t d) {
+    if (r >= d) {r -= d;} else {r = 0;}
+    if (g >= d) {g -= d;} else {g = 0;}
+    if (b >= d) {b -= d;} else {b = 0;}
+    return *this;
+}
+
+inline RGBColor& RGBColor::operator++() {
+    if (r < 255) ++r;
+    if (g < 255) ++g;
+    if (b < 255) ++b;
+    return *this;
+}
+
+inline RGBColor& RGBColor::operator--() {
+    if (r > 0) --r;
+    if (g > 0) --g;
+    if (b > 0) --b;
+    return *this;
+}
 
 template <std::size_t LEDS_CNT>
 inline  WS2813Leds<LEDS_CNT>::WS2813Leds()

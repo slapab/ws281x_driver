@@ -18,6 +18,7 @@
 #include "PseudoRandomDotsAnimation.hpp"
 #include "PseudoRandomNumberGenerator.h"
 #include "FallingLightAnimation.hpp"
+#include "MovingPixelsAnimation.hpp"
 
 
 extern WS2813Leds<LEDS_COUNT> ledStrip1;
@@ -446,7 +447,9 @@ int main(int argc, char* argv[])
   animations::AnimationContext animationContext(RndGen);
   animations::PseudoRandomDotsAnimation dotsAnim(timer, ledStrip1);
   animations::FallingLightAnimation fallingLight(timer, ledStrip1);
-  int descr1 = animationContext.registerAnimation(&dotsAnim);
+  animations::MovingPixelsAnimation movingPixels(timer, ledStrip1);
+  animationContext.registerAnimation(&movingPixels);
+  animationContext.registerAnimation(&dotsAnim);
   animationContext.registerAnimation(&fallingLight);
 
 
@@ -463,7 +466,7 @@ int main(int argc, char* argv[])
   while (1)
     {
       animationContext.runNext();
-      timer.sleep(1000);
+      timer.sleep(200);
 
 
       blinkLed.turnOn();
@@ -477,16 +480,16 @@ int main(int argc, char* argv[])
 
 //      sendSpiBuffer();
 
-      movingLed();
+//      movingLed();
 
-      timer.sleep(500);
+//      timer.sleep(500);
 
 //      ledStrip1.fill(0, 3, {128,0,0});
 //      ledStrip1.fill(3, 6, {0,128,0});
 //      ledStrip1.fill(6, 9, {0,0,128});
 //      while (false == ledStrip1.send());
 
-      timer.sleep(500);
+//      timer.sleep(500);
 //      timer.sleep(10);
 
 //      ledStrip1.setMarkerColor(RGBColor {128,0,0});
@@ -495,13 +498,6 @@ int main(int argc, char* argv[])
 //      ledStrip1.fill(0,3, {0,0,0});
 //
 //      while (false == ledStrip1.send()) {;}
-
-
-      timer.sleep(1000);
-      asm("nop");
-      asm("nop");
-      asm("nop");
-      asm("nop");
 
     }
   // Infinite loop, never return.

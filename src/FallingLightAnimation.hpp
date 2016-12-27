@@ -1,6 +1,8 @@
 #ifndef FALLINGLIGHTANIMATION_HPP_
 #define FALLINGLIGHTANIMATION_HPP_
 
+#include "AnimationInterface.h"
+
 namespace animations {
 class FallingLightAnimation final : public AnimationInterface {
 public:
@@ -30,20 +32,30 @@ inline void FallingLightAnimation::run(AnimationContext* context) {
     RGBColor l1{20, 20, 20};
 
 
-    uint16_t delay = 25;
+    uint16_t delay = 20;
     bool dir = true ;
 
-    for (int j = 0; j < 50; ++j) {
+    for (int j = 0; j < 20; ++j) {
         if (j > 0) {
             fg.r = rndGen.randomize();
             fg.g = rndGen.randomize();
             fg.b = rndGen.randomize();
 
-            l5 = {fg.r * 5/6, fg.g * 5/6, fg.b *5/6};
-            l4 = {fg.r * 7/9, fg.g * 7/9, fg.b * 7/9};
-            l3 = {fg.r * 5/9, fg.g * 5/9, fg.b * 5/9};
-            l2 = {fg.r * 3/9, fg.g * 3/9, fg.b * 3/9};
-            l1 = {fg.r * 1/4, fg.g * 1/9, fg.b * 1/4};
+            l5 = {static_cast<uint8_t>(static_cast<int>(fg.r) * 5/6),
+                  static_cast<uint8_t>(static_cast<int>(fg.g) * 5/6),
+                  static_cast<uint8_t>(static_cast<int>(fg.b) * 5/6)};
+            l4 = {static_cast<uint8_t>(static_cast<int>(fg.r) * 7/9),
+                  static_cast<uint8_t>(static_cast<int>(fg.g) * 7/9),
+                  static_cast<uint8_t>(static_cast<int>(fg.b) * 7/9)};
+            l3 = {static_cast<uint8_t>(static_cast<int>(fg.r) * 5/9),
+                  static_cast<uint8_t>(static_cast<int>(fg.g) * 5/9),
+                  static_cast<uint8_t>(static_cast<int>(fg.b) * 5/9)};
+            l2 = {static_cast<uint8_t>(static_cast<int>(fg.r) * 3/9),
+                  static_cast<uint8_t>(static_cast<int>(fg.g) * 3/9),
+                  static_cast<uint8_t>(static_cast<int>(fg.b) * 3/9)};
+            l1 = {static_cast<uint8_t>(static_cast<int>(fg.r) * 1/4),
+                  static_cast<uint8_t>(static_cast<int>(fg.g) * 1/4),//1/9
+                  static_cast<uint8_t>(static_cast<int>(fg.b) * 1/4)};
         }
 
         if (true == dir ) {
@@ -92,7 +104,7 @@ inline void FallingLightAnimation::run(AnimationContext* context) {
 
                 while(false == m_LedStrip.send());
 
-                m_Timer.sleep(delay);
+                m_Timer.sleep(delay/2);
 
             }
 
