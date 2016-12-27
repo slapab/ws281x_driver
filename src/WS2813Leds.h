@@ -58,6 +58,7 @@ public:
     void setMarkerColor(RGBColor&& color);
     void fill(uint16_t start, uint16_t end);
     void fill(uint16_t start, uint16_t end, const RGBColor& color);
+    void clear();
     bool send();
 
     //for debugging only
@@ -335,6 +336,9 @@ inline bool WS2813Leds<LEDS_CNT>::send() {
     return swapBuffers();
 }
 
-
+template <std::size_t LEDS_CNT>
+inline void WS2813Leds<LEDS_CNT>::clear() {
+    fill(0, LEDS_CNT, {0,0,0});
+}
 
 #endif /* WS2813LEDS_H_ */

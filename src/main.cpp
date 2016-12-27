@@ -19,6 +19,7 @@
 #include "PseudoRandomNumberGenerator.h"
 #include "FallingLightAnimation.hpp"
 #include "MovingPixelsAnimation.hpp"
+#include "FallingSnowAnimation.hpp"
 
 
 extern WS2813Leds<LEDS_COUNT> ledStrip1;
@@ -448,9 +449,12 @@ int main(int argc, char* argv[])
   animations::PseudoRandomDotsAnimation dotsAnim(timer, ledStrip1);
   animations::FallingLightAnimation fallingLight(timer, ledStrip1);
   animations::MovingPixelsAnimation movingPixels(timer, ledStrip1);
+  animations::FallingSnowAnimation fallingSnow(timer, ledStrip1);
   animationContext.registerAnimation(&movingPixels);
+  animationContext.registerAnimation(&fallingSnow);
   animationContext.registerAnimation(&dotsAnim);
   animationContext.registerAnimation(&fallingLight);
+
 
 
   volatile uint16_t t = 0;
