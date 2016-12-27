@@ -45,6 +45,7 @@ public:
     RGBColor& operator-=(const uint8_t d);
     RGBColor& operator++();
     RGBColor& operator--();
+    RGBColor operator- (const uint8_t d) const;
 
     virtual ~RGBColor() {}
 };
@@ -159,6 +160,12 @@ inline RGBColor& RGBColor::operator--() {
     if (g > 0) --g;
     if (b > 0) --b;
     return *this;
+}
+
+inline RGBColor RGBColor::operator- (const uint8_t d) const {
+    RGBColor t = *this;
+    t -= d;
+    return t;
 }
 
 template <std::size_t LEDS_CNT>
