@@ -21,6 +21,7 @@
 #include "MovingPixelsAnimation.hpp"
 #include "FallingSnowAnimation.hpp"
 #include "WalkingDotsAnimation.hpp"
+#include "MovingColorfullLightsAnimation.hpp"
 
 
 extern WS2813Leds<LEDS_COUNT> ledStrip1;
@@ -452,7 +453,9 @@ int main(int argc, char* argv[])
   animations::MovingPixelsAnimation movingPixels(timer, ledStrip1);
   animations::FallingSnowAnimation fallingSnow(timer, ledStrip1);
   animations::WalkingDotsAnimation walkingDots(timer, ledStrip1);
+  animations::MovingColorfullLightsAnimation movingColorfullLights(timer, ledStrip1);
   animationContext.registerAnimation(&movingPixels);
+  animationContext.registerAnimation(&movingColorfullLights);
   animationContext.registerAnimation(&walkingDots);
   animationContext.registerAnimation(&fallingSnow);
   animationContext.registerAnimation(&dotsAnim);
