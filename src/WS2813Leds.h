@@ -60,6 +60,8 @@ public:
     void setMarkerColor(RGBColor&& color);
     void fill(uint16_t start, uint16_t end);
     void fill(uint16_t start, uint16_t end, const RGBColor& color);
+    bool moveForward(const uint16_t orgStart, const uint16_t newStart, const uint16_t len);
+    bool moveBackward(const uint16_t orgStart, const uint16_t newStart, const uint16_t len);
     void clear();
     bool send();
 
@@ -358,6 +360,71 @@ inline bool WS2813Leds<LEDS_CNT>::send() {
 template <std::size_t LEDS_CNT>
 inline void WS2813Leds<LEDS_CNT>::clear() {
     fill(0, LEDS_CNT, {0,0,0});
+}
+
+template <std::size_t LEDS_CNT>
+inline bool WS2813Leds<LEDS_CNT>::moveForward(const uint16_t orgStart, const uint16_t newStart, const uint16_t len) {
+    bool retval = false;
+    const uint16_t _orgStart = orgStart*3;
+    const uint16_t _newStart = newStart*3;
+    const uint16_t _len = len*3;
+    do {
+        int32_t orgEnd = _orgStart + _len - 1;
+
+        // check for proper distance
+        if (orgStart >= newStart) {
+            break;
+        }
+        // check for buffer boundaries
+        if ((0 == len) || (orgEnd >= LEDS_CNT) || (newStart + len > LEDS_CNT)) {
+            break;
+        }
+
+        // calculate the distance between org start and new start
+        uint16_t distance = _newStart - _orgStart;
+
+        // start copy from the last index
+        while (orgEnd >= static_cast<int32_t>(_orgStart)) {
+            m_pFillingBuff[orgEnd+distance] = m_pFillingBuff[orgEnd];
+            --orgEnd;
+        }
+
+        retval = true;
+
+    } while(0);
+
+    return retval;
+}
+
+template <std::size_t LEDS_CNT>
+bool WS2813Leds<LEDS_CNT>::moveBackward(const uint16_t orgStart, const uint16_t newStart, const uint16_t len) {
+    bool retval = false;
+    const uint16_t _orgStart = orgStart * 3;
+    const uint16_t _newStart = newStart * 3;
+    const uint16_t _len = len * 3;
+    int32_t orgEnd = _orgStart - _len;
+    do {
+        if (orgStart <= newStart) {
+            break;
+        }
+
+        if ((0 == len) || (orgEnd <= 0) || (static_cast<int32_t>(_newStart - _len) < 0)) {
+            break;
+        }
+
+        // calculate the distance between org start and new start
+        uint16_t distance = _orgStart - _newStart;
+
+        // start copy from the first index
+        while (orgEnd <= static_cast<int32_t>(_orgStart)) {
+            m_pFillingBuff[orgEnd-distance] = m_pFillingBuff[orgEnd];
+            ++orgEnd;
+        }
+
+        retval = true;
+    } while(0);
+
+    return retval;
 }
 
 #endif /* WS2813LEDS_H_ */
