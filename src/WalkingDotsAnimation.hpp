@@ -38,13 +38,14 @@ inline void WalkingDotsAnimation::run(AnimationContext* context) {
                                     , {0xd4, 0xf2, 0x13}
                                     , {0x79, 0xa3, 0x5c}
                                     , {0x0e, 0x64, 0xfb}
-                                    , {0x08, 0x27, 0x15}
+                                    , {56, 216, 123}
                                     };
 
     RGBColor tc = defColors[0];
 
     bool dimmingDir = false;
     int keepColorAtMax = 10;
+    int keepColorAtMin = 7;
     uint8_t color_idx = 0;
 
     // Describes the white light moving up an down
@@ -107,9 +108,12 @@ inline void WalkingDotsAnimation::run(AnimationContext* context) {
         if (false == dimmingDir) {
             tc-=30;
             if ( tc.r <= 5 && tc.g <= 5 && tc.b <= 5) {
-                // determine the min value
-                dimmingDir ^= true;
-                color_idx = (color_idx+1) % (sizeof(defColors)/sizeof(defColors[0]));
+                --keepColorAtMin;
+                if (keepColorAtMin <= 0) {
+                    keepColorAtMin = 7;
+                    dimmingDir ^= true;
+                    color_idx = (color_idx+1) % (sizeof(defColors)/sizeof(defColors[0]));
+                }
             }
         } else {
             if (defColors[color_idx].r == tc.r && defColors[color_idx].g == tc.g && defColors[color_idx].b == tc.b) {
