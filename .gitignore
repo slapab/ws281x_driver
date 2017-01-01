@@ -31,5 +31,7 @@
 # Eclipse settings
 .settings/
 
-# Debug dir
+# Build dirs
 Debug/
+Debug_pc_visualization/
+Release_pc_visualization/

@@ -26,7 +26,6 @@ extern "C" {
 constexpr const std::size_t LEDS_COUNT = 300;
 
 
-
 class LEDColor {
 public:
     LEDColor(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b) {;}
@@ -56,6 +55,7 @@ template <std::size_t LEDS_CNT>
 class WS2813Leds {
 public:
     WS2813Leds();
+    virtual ~WS2813Leds() {;}
 
     void setMarkerColor(RGBColor&& color);
     void fill(uint16_t start, uint16_t end);
@@ -65,8 +65,7 @@ public:
     void clear();
     bool send();
 
-    //for debugging only
-    void imitateSentData() { m_pTransmissionNextLEDColor = m_pTranssmitionEnd; }
+    virtual RGBColor getNextToTransmit();
 
     void registerTransmissionLayer(LedsTransmission* transsmission) {
         if (nullptr != transsmission) {
@@ -83,23 +82,17 @@ public:
     friend class LedsTransmission;
 
 protected:
-
-
-
-protected:
     enum FillingBuffState : std::sig_atomic_t {
           NotReady = 0
         , Ready = 1
     };
 
-private:
     bool swapBuffers();
-    void startDMATransaction(const uint16_t transferSize, const uint8_t* startAddr, const uint8_t* endAddr);
+    virtual void startDMATransaction(const uint16_t transferSize, const uint8_t* startAddr, const uint8_t* endAddr);
     bool hasNextToTransmit();
-    RGBColor getNextToTransmit();
 //    void convertFirstSPIBuffer();
 
-private:
+protected:
 
     uint8_t m_RgbBuffers[2][LEDS_COUNT*3];
     uint8_t* m_pTransmittingBuff;
@@ -291,6 +284,7 @@ inline void WS2813Leds<LEDS_CNT>::startDMATransaction(const uint16_t transferSiz
         return;
     }
 
+#ifndef PC_VISUALIZATION
     RCC->AHBENR |= RCC_AHBENR_DMA1EN;
     DMA1_Channel7->CCR = 0;
 
@@ -303,6 +297,7 @@ inline void WS2813Leds<LEDS_CNT>::startDMATransaction(const uint16_t transferSiz
 
     // start the DMA transaction
     DMA1_Channel7->CCR |= DMA_CCR7_EN;
+#endif
 }
 
 

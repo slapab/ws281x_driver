@@ -3,39 +3,29 @@
 #include "LedsTransmission.h"
 #include "WS2813Leds.h"
 
+#ifndef PC_VISUALIZATION
 extern WS2813Leds<LEDS_COUNT> ledStrip1;
 LedsTransmission ws2813TransLayer(ledStrip1);
-
+#endif
 
 #define BITBAND_SRAM(addr, bit) ((volatile uint32_t*)(SRAM_BB_BASE + ((((uint32_t)addr) - SRAM_BASE) << 5) + ((bit) << 2)))
 
 
-//LedsTransmission::LedsTransmission(WS2813Leds<LEDS_COUNT>& leds)
-//    : m_LedsStrip(leds)
-//    , m_currBuffIdx(0)  // points to the first buffer
-//    , m_nextBuffIdx(1)  // points to the second buffer
-//    , m_TransmissionStatus(TransmissionStatus::FINISHED)
-//    , m_TransferSize(0)
-//{
-//    initBindBandPointers();
-//    initSPI();
-//    initDMA();
-//
-//    // this not working with globals
-////    m_LedsStrip.registerTransmissionLayer(this);
-//}
-
-
 void LedsTransmission::initSPI() {
+#ifndef PC_VISUALIZATION
+
     RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
     SPI1->CR1 = 0;
     SPI1->CR2 = 0;
     SPI1->CR1 = SPI_CR1_MSTR | SPI_CR1_BR_1 | SPI_CR1_BR_0 | SPI_CR1_CPHA;
     SPI1->CR2 |= SPI_CR2_SSOE | SPI_CR2_TXDMAEN;
     SPI1->CR1 |= SPI_CR1_SPE;
+
+#endif
 }
 
 void LedsTransmission::initDMA() {
+#ifndef PC_VISUALIZATION
     // todo fix hardcoded irq number
 
     // initiate the DMA
@@ -52,12 +42,15 @@ void LedsTransmission::initDMA() {
     NVIC_SetPriority(DMA1_Channel3_IRQn, 6);
     NVIC_ClearPendingIRQ(DMA1_Channel3_IRQn);
     NVIC_EnableIRQ(DMA1_Channel3_IRQn);
+
+#endif
 }
 
 
 bool LedsTransmission::beginTransmision(const std::sig_atomic_t transferSize) {
     bool retVal = false;
 
+#ifndef PC_VISUALIZATION
     // detect if transaction is in progress
     if ((TransmissionStatus::FINISHED == m_TransmissionStatus) &&
         (0 != (SPI1->SR & SPI_SR_TXE)) && (0 == (SPI1->SR & SPI_SR_BSY))) {
@@ -83,11 +76,15 @@ bool LedsTransmission::beginTransmision(const std::sig_atomic_t transferSize) {
 
         retVal = true;
     }
+#else
+    (void)transferSize;
+#endif
 
     return retVal;
 }
 
 
+#ifndef PC_VISUALIZATION
 void DMA1_Channel3_IRQHandler() {
     // Clear interrupt flags
     GPIOA->BSRR |= GPIO_BSRR_BS3;
@@ -155,9 +152,11 @@ void DMA1_Channel3_IRQHandler() {
 
     GPIOA->BSRR |= GPIO_BSRR_BR3;
 }
-
+#endif
 
 void LedsTransmission::initBindBandPointers() {
+#ifndef PC_VISUALIZATION
+
     for (uint8_t i = 0; i < BUFFERS_NO; ++i) {
         for (uint8_t buffByte = 0, bitBandBit = 0; buffByte < BUFFER_SIZE; ++buffByte, bitBandBit += 2) {
             m_bitBandPtrs[i][bitBandBit] = BITBAND_SRAM(&m_ConvBuffers[i][buffByte], 6);
@@ -167,9 +166,13 @@ void LedsTransmission::initBindBandPointers() {
             m_ConvBuffers[i][buffByte] = 0b10001000;
         }
     }
+
+#endif
 }
 
 void LedsTransmission::convertFirstTwoLeds() {
+#ifndef PC_VISUALIZATION
+
     const uint8_t indexes[] = {m_currBuffIdx, m_nextBuffIdx};
     // convert two LEDs, first convert into current buffer, second into next buffer
     for (auto i = 0; i < 2; ++i) {
@@ -205,4 +208,6 @@ void LedsTransmission::convertFirstTwoLeds() {
             *bitNextBuffPtrs[23] = color.b;
         }
     }
+
+#endif
 }

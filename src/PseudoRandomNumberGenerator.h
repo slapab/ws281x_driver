@@ -46,11 +46,14 @@ private:
 
 template <class Type>
 inline PseudoRandomNumberGenerator<Type>::PseudoRandomNumberGenerator(const Type s1, const Type s2, const Type s3)
-    : m_ADC(ADC1)
-    , m_SampleIter(0)
+    : m_SampleIter(0)
     , m_SampleBit(0)
     , m_ADCSamplingStatus(0)
 {
+#ifndef PC_VISUALIZATION
+    m_ADC = ADC1;
+#endif
+
     seed(s1,s2,s3);
 }
 
@@ -79,6 +82,8 @@ inline Type PseudoRandomNumberGenerator<Type>::randomize() {
 
 template <class Type>
 inline void PseudoRandomNumberGenerator<Type>::initADC() {
+#ifndef PC_VISUALIZATION
+
     RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
 
     __enable_irq();
@@ -106,17 +111,21 @@ inline void PseudoRandomNumberGenerator<Type>::initADC() {
 
     m_ADC->SQR3 |= ADC_SQR3_SQ1_0; // channel 1
 
-
+#endif
 }
 
 template <class Type>
 inline void PseudoRandomNumberGenerator<Type>::fireADC() {
+#ifndef PC_VISUALIZATION
+
     initADC();
     m_ADCSamplingStatus = 0;
     std::fill_n(m_Samples, sizeof(m_Samples)/sizeof(m_Samples[0]), 0);
     m_SampleIter = 0;
     m_SampleBit = 0;
     m_ADC->CR2 |= ADC_CR2_ADON;
+
+#endif
 }
 
 template <class Type>

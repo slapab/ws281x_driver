@@ -20,6 +20,7 @@ class WS2813Leds;
 class LedsTransmission {
 public:
     friend void DMA1_Channel3_IRQHandler();
+    virtual ~LedsTransmission() {;}
 
     template <std::size_t LED_CNTS>
     explicit LedsTransmission(WS2813Leds<LED_CNTS>& ledsStrip)
@@ -38,7 +39,7 @@ public:
     }
     ///  Begins transmission, it takes into account that data are already
     /// converted and stored into buffer
-    bool beginTransmision(const std::sig_atomic_t transferSize);
+    virtual bool beginTransmision(const std::sig_atomic_t transferSize);
     bool stillTransmitting() { return TransmissionStatus::IN_PROGRESS == m_TransmissionStatus; }
 
 private:
@@ -47,7 +48,7 @@ private:
     void initDMA();
     void convertFirstTwoLeds();
 
-private:
+protected:
     enum TransmissionStatus : std::sig_atomic_t {
         IN_PROGRESS = 0,
         FINISHED = 1
